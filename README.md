@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/cover.png" alt="Spring AI × AI Elements" width="820" />
+
 # Spring AI × AI Elements
 
 **A modern, streaming AI chat UI — backed entirely by Spring Boot.**
@@ -21,6 +23,16 @@ speak it, so streamed text, live tool calls, and conversation memory just work i
 
 The demo is an **Inbox Assistant**: ask about your emails, watch the model call a `searchEmails` tool and
 stream a reply.
+
+## Demo
+
+<div align="center">
+
+<img src="docs/demo.gif" alt="Inbox Assistant streaming a reply with a live tool call" width="760" />
+
+<em>The <code>searchEmails</code> tool call renders inline while the answer streams back — every frame served by Spring Boot.</em>
+
+</div>
 
 ## How it works
 

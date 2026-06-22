@@ -28,3 +28,9 @@ yarn-error.log*
 *.iml
 .DS_Store
 Thumbs.db
+
+# ---- docs (track cover + demo only) ----
+.playwright-mcp/
+docs/*
+!docs/cover.png
+!docs/demo.gif
