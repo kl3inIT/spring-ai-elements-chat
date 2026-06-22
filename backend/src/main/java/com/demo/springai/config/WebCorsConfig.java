@@ -1,0 +1,23 @@
+package com.demo.springai.config;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class WebCorsConfig implements WebMvcConfigurer {
+
+    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    private String[] allowedOrigins;
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("GET", "POST", "OPTIONS")
+                .allowedHeaders("*")
+                .exposedHeaders("x-vercel-ai-ui-message-stream")
+                .maxAge(3600);
+    }
+}

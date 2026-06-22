@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: SpringAiElements
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        model: gpt-4o-mini
+
+server:
+  port: 8080
+
+app:
+  cors:
+    allowed-origins: http://localhost:3000
