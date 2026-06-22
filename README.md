@@ -2,10 +2,7 @@
 
 # Spring AI × AI Elements
 
-### A modern, streaming AI chat — **Java/Spring on the backend, a polished React UI on the frontend.**
-
-Connect a **Spring AI** backend to **Vercel AI Elements** (`useChat`) over Server‑Sent Events,
-without rewriting your backend in Node.
+**A modern, streaming AI chat UI — backed entirely by Spring Boot.**
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-2.0-6DB33F?logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
@@ -16,158 +13,65 @@ without rewriting your backend in Node.
 
 </div>
 
----
+A Java/Spring developer's path to a modern React AI UI — **without leaving the JVM.**
 
-## ✨ Why this exists
+`useChat` (Vercel **AI Elements**) doesn't consume raw text; it speaks a specific wire format — the
+AI SDK **UI Message Stream**, over SSE. This repo is the small bridge that makes a **Spring AI** backend
+speak it, so streamed text, live tool calls, and conversation memory just work in a polished React UI.
 
-Most "Spring AI streaming" examples stop at streaming **raw text**. But a modern AI UI —
-[Vercel **AI Elements**](https://ai-sdk.dev/elements) driven by the `useChat` hook — doesn't consume raw
-text or a Java object. It consumes a **specific streaming wire protocol** (the AI SDK *UI Message Stream*,
-over SSE).
+The demo is an **Inbox Assistant**: ask about your emails, watch the model call a `searchEmails` tool and
+stream a reply.
 
-This repo is the small **bridge** that makes the two speak the same language:
-
-> a Spring controller that takes Spring AI's streaming output (text **and** tool calls) and emits exactly
-> the chunks AI Elements understands — so your Java backend and a best‑in‑class React AI UI just work together.
-
-> 🧪 Extracted as a clean, standalone demo from patterns discovered while building **Zero Mail**.
-
----
-
-## 🏗️ Architecture
+## How it works
 
 ```
-┌─────────────────────────────┐         SSE  (UI Message Stream, "v1")        ┌──────────────────────────────┐
-│  Next.js 16 + React 19       │  ◀═══════════════════════════════════════════ │  Spring Boot 4.1 (servlet)    │
-│  AI Elements + useChat       │                                                │                              │
-│  DefaultChatTransport ──────▶│  POST /api/chat   { message }                  │  ChatController (SseEmitter) │
-│                              │                                                │     │                        │
-└─────────────────────────────┘                                                │     ▼ subscribe              │
-        ▲ renders parts:                                                        │  Spring AI ChatClient.stream │
-        text · tool · reasoning                                                 │     │  Flux<String> + @Tool     │
-                                                                                │     ▼                        │
-                                                                                │  UiMessageStreamEmitter      │
-                                                                                │  (text-delta / tool / [DONE])│
-                                                                                └──────────────────────────────┘
+Next.js + AI Elements (useChat)  ──POST {message, conversationId}──▶  Spring Boot (servlet)
+              ▲                                                          ChatController → SseEmitter
+              │   SSE: UI Message Stream (text-delta / tool-* / [DONE])  └─ Spring AI ChatClient.stream()
+              └──────────────────────────────────────────────────────────  + @Tool + window memory
 ```
 
-**Key idea:** `Flux` is how the server *produces* tokens (inside the JVM); **SSE** is how they *travel* to the
-browser. The emitter is the translation layer that frames Spring AI output as the AI SDK's UI Message Stream.
+- **`Flux` inside, SSE at the edge.** Spring AI produces a `Flux` of tokens + tool events; `UiMessageStream`
+  encodes each as a UI Message Stream frame and pushes it over `SseEmitter`.
+- **Pure tools.** `@Tool` methods just return data; `EventEmittingToolManager` (a `ToolCallingManager`
+  decorator) surfaces tool input/output to the UI centrally.
+- **Memory.** `MessageWindowChatMemory` keyed by `conversationId` keeps multi-turn context server-side.
 
----
-
-## 🧰 Tech stack
-
-| Layer | Tech | Version |
-|-------|------|---------|
-| Backend | Spring Boot | 4.1 |
-| | Spring AI (OpenAI) | 2.0 |
-| | Java | 25 |
-| | Build | Gradle |
-| Frontend | Next.js (App Router) | 16 |
-| | React | 19 |
-| | Vercel AI SDK (`ai`, `@ai-sdk/react`) | 6 |
-| | AI Elements | shadcn/ui registry |
-| Transport | Server‑Sent Events (AI SDK UI Message Stream `v1`) | — |
-
----
-
-## 📁 Project structure
+One frame the wire actually carries:
 
 ```
-spring-ai-elements-chat/
-├── backend/                         # Spring Boot 4.1 · Spring AI 2.0 · Java 25 (Gradle)
-│   ├── build.gradle
-│   └── src/main/
-│       ├── java/com/demo/springai/
-│       │   ├── SpringAiElementsApplication.java
-│       │   ├── config/
-│       │   │   ├── ChatClientConfig.java       # ChatClient + system prompt + tools
-│       │   │   ├── WebCorsConfig.java          # CORS for the Next.js dev origin
-│       │   │   └── ChatStreamConfig.java       # SSE keepalive scheduler
-│       │   ├── chat/
-│       │   │   ├── ChatController.java         # POST /api/chat  → SseEmitter
-│       │   │   ├── ChatStreamService.java      # merge text Flux + tool events
-│       │   │   ├── dto/ChatRequest.java
-│       │   │   └── stream/UiMessageStreamEmitter.java   # UI Message Stream encoder
-│       │   └── tools/WeatherTool.java          # @Tool demo (one tool call)
-│       └── resources/application.yml           # spring.ai.openai.* · server.port
-│
-└── frontend/                        # Next.js 16 · React 19 · AI SDK 6
-    ├── app/
-    │   ├── page.tsx                 # chat page (useChat + AI Elements)
-    │   ├── layout.tsx
-    │   └── globals.css
-    ├── components/ai-elements/      # installed via the shadcn registry
-    └── next.config.ts               # dev rewrite /api → :8080 (avoids CORS in dev)
-```
-
-> Backend is scaffolded. Frontend + the bridge code land next — see the [roadmap](#-roadmap).
-
----
-
-## 🚀 Getting started
-
-### Prerequisites
-- **JDK 25**
-- **Node.js 20+**
-- An **OpenAI API key**
-
-### 1. Backend
-
-```bash
-cd backend
-
-# provide your key (never commit it)
-export OPENAI_API_KEY=sk-...        # Windows PowerShell: $env:OPENAI_API_KEY="sk-..."
-
-./gradlew bootRun                   # starts on http://localhost:8080
-```
-
-### 2. Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev                         # starts on http://localhost:3000
-```
-
-Open **http://localhost:3000** and chat. Replies stream in token by token, and the demo tool renders
-live in the conversation.
-
----
-
-## 🔌 The wire protocol (the interesting bit)
-
-`useChat` (via `DefaultChatTransport`) opens the SSE stream and parses **UI Message Stream** chunks.
-The backend emits, per turn:
-
-```
-data: {"type":"start","messageId":"..."}
-data: {"type":"text-start","id":"0"}
-data: {"type":"text-delta","id":"0","delta":"Hello"}
-data: {"type":"tool-input-available","toolCallId":"...","toolName":"getWeather","input":{...}}
-data: {"type":"tool-output-available","toolCallId":"...","output":{...}}
-data: {"type":"text-end","id":"0"}
-data: {"type":"finish"}
+data: {"type":"text-delta","id":"0","delta":"You have "}
+data: {"type":"tool-input-available","toolCallId":"...","toolName":"searchEmails","input":{"query":"invoice"}}
+data: {"type":"tool-output-available","toolCallId":"...","output":[...]}
 data: [DONE]
 ```
 
-Response header: `x-vercel-ai-ui-message-stream: v1`.
+Response header `x-vercel-ai-ui-message-stream: v1` tells `useChat` to parse it as a UI Message Stream.
 
----
+## Run it
 
-## 🗺️ Roadmap
+Needs **JDK 25**, **Node 20+**, an **OpenAI API key**.
 
-- [x] Backend scaffold (Spring Boot 4.1 · Spring AI 2.0 · Java 25 · Gradle)
-- [ ] `UiMessageStreamEmitter` + `ChatController` (SSE bridge)
-- [ ] Demo `@Tool` (weather) surfaced as a tool part
-- [ ] Next.js frontend with AI Elements + `useChat`
-- [ ] End‑to‑end run + demo GIF
+```bash
+# backend  → http://localhost:8080
+cd backend
+cp .env.example .env          # then put your OPENAI_API_KEY in .env (gitignored)
+./gradlew bootRun
 
----
+# frontend → http://localhost:3000
+cd frontend
+npm install
+npm run dev
+```
 
-## 📄 License
+Open **http://localhost:3000** and ask *"any emails about invoices?"*. In dev, Next.js proxies
+`/api/*` to `:8080`, so there's no CORS to configure.
+
+## Stack
+
+Spring Boot 4.1 · Spring AI 2.0 · Java 25 · Gradle — Next.js 16 · React 19 · AI SDK 6 · AI Elements.
+
+## License
 
 MIT — see [LICENSE](LICENSE).
 
