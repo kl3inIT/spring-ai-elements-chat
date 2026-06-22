@@ -74,7 +74,3 @@ Spring Boot 4.1 · Spring AI 2.0 · Java 25 · Gradle — Next.js 16 · React 19
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-<div align="center">
-<sub>Built by <a href="https://www.linkedin.com/in/kl3init/">Đạt Phan</a> · Spring AI without leaving the JVM.</sub>
-</div>
